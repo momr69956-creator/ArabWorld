@@ -3,9 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Interactive atlas of the Arab world — click a country to hear its name and capital in Arabic, with optional Latin transliteration." />
 <title>The Arab World — Interactive Atlas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://flagcdn.com" />
 <link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
 :root {
@@ -40,12 +42,36 @@ header {
 .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: var(--mute); }
 h1 { font-family: "Spectral", serif; font-weight: 400; font-size: 21px; }
 h1 em { font-style: italic; color: var(--arab-a2); }
-.header-r { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--mute); display: flex; gap: 20px; }
+.header-r { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--mute); display: flex; align-items: center; gap: 20px; }
 .header-r strong { color: var(--ink); font-weight: 500; }
+
+/* Transliteration toggle */
+.tbtn {
+  display: flex; align-items: center; gap: 8px;
+  background: none; border: 1px solid var(--rule); border-radius: 3px;
+  padding: 6px 10px; cursor: pointer; color: var(--mute);
+  font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.tbtn:hover { border-color: var(--ink); color: var(--ink); }
+.tbtn .tbtn-box {
+  background: var(--paper2); border: 1px solid var(--rule); border-radius: 2px;
+  padding: 1px 5px; font-size: 9px; letter-spacing: .05em; text-transform: none;
+}
+.tbtn .tbtn-state { font-weight: 500; }
+body.translit-on .tbtn { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+body.translit-on .tbtn .tbtn-box { background: var(--coral); border-color: var(--coral); color: var(--paper); }
+body.translit-on .tbtn .tbtn-state { color: var(--arab-h); }
+
+/* Transliteration visibility (elements hidden until toggle is on) */
+.np-translit, .cm-t { display: none; }
+.np-cap-tr, .tip-tr { display: none; }
+body.translit-on .np-translit, body.translit-on .cm-t { display: block; }
+body.translit-on .np-cap-tr, body.translit-on .tip-tr { display: inline; }
 
 /* MAP */
 #wrap { position: fixed; inset: 56px 0 0 0; overflow: hidden; }
-#map { width: 100%; height: 100%; display: block; cursor: grab; }
+#map { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
 #map.dragging { cursor: grabbing; }
 
 /* SVG map layers */
@@ -68,6 +94,45 @@ h1 em { font-style: italic; color: var(--arab-a2); }
 }
 .small-marker:hover { fill: var(--arab-h); }
 .small-marker.active { fill: var(--arab-a); stroke: var(--arab-a2); }
+
+/* TOOLTIP */
+#tip {
+  position: fixed; z-index: 25; pointer-events: none;
+  background: rgba(42,33,24,.94); color: var(--paper);
+  padding: 7px 12px; border-radius: 3px; max-width: 260px;
+  font-size: 12.5px; line-height: 1.4;
+  box-shadow: 0 4px 14px rgba(0,0,0,.25);
+  opacity: 0; transition: opacity .12s;
+}
+#tip.vis { opacity: 1; }
+#tip strong { font-family: "Spectral", serif; font-weight: 600; }
+#tip .tip-ar { color: var(--arab-h); }
+#tip .tip-tr { font-style: italic; color: rgba(242,232,213,.75); }
+
+/* LOADING / ERROR */
+.load {
+  position: fixed; inset: 56px 0 0 0; z-index: 12;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(242,232,213,.55); backdrop-filter: blur(2px);
+}
+.load.hide { display: none; }
+.load-card {
+  background: var(--paper); border: 1px solid var(--ink); border-radius: 3px;
+  padding: 18px 26px; box-shadow: 0 10px 30px rgba(0,0,0,.15);
+  font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ink2); display: flex; align-items: center; gap: 12px; flex-direction: column; text-align: center;
+}
+.load-spin {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--rule); border-top-color: var(--coral);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.load-retry {
+  margin-top: 4px; padding: 7px 16px; cursor: pointer;
+  background: var(--ink); color: var(--paper); border: none; border-radius: 3px;
+  font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+}
 
 /* ZOOM CONTROLS */
 .zoom-ctl {
@@ -110,9 +175,13 @@ h1 em { font-style: italic; color: var(--arab-a2); }
 .np-flag { line-height: 1; margin-bottom: 10px; }
 .np-num { font-family: "Spectral", serif; font-weight: 300; font-size: 46px; line-height: 1; color: var(--coral); font-variant-numeric: tabular-nums; }
 .np-name { font-family: "Spectral", serif; font-size: 25px; line-height: 1.15; margin-top: 4px; }
-.np-arabic { font-family: "Spectral", serif; font-size: 18px; font-weight: 300; color: var(--gold); direction: rtl; margin-top: 3px; }
+.np-arabic { font-family: "Spectral", serif; font-size: 19px; font-weight: 300; color: var(--gold); direction: rtl; margin-top: 3px; }
+.np-translit { font-family: "Spectral", serif; font-style: italic; font-size: 14.5px; color: rgba(242,232,213,.82); margin-top: 2px; }
 .np-capital { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: rgba(242,232,213,.6); margin-top: 12px; }
 .np-capital .lbl { color: rgba(242,232,213,.32); margin-right: 8px; }
+.np-cap2 { display: flex; align-items: baseline; gap: 10px; margin-top: 3px; }
+.np-cap2 .np-cap-ar { font-family: "Spectral", serif; font-size: 17px; font-weight: 300; color: var(--gold); direction: rtl; }
+.np-cap2 .np-cap-tr { font-family: "Spectral", serif; font-style: italic; font-size: 13.5px; color: rgba(242,232,213,.75); }
 .np-ctrl { display: flex; align-items: center; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(242,232,213,.1); }
 .play-btn {
   width: 40px; height: 40px; border-radius: 50%; background: var(--coral);
@@ -160,16 +229,18 @@ h1 em { font-style: italic; color: var(--arab-a2); }
 .clist::-webkit-scrollbar { width: 5px; }
 .clist::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
 .clist li {
-  display: grid; grid-template-columns: 22px 26px 1fr auto;
+  display: grid; grid-template-columns: 22px 30px 1fr auto;
   align-items: center; gap: 10px; padding: 10px 22px;
   border-bottom: 1px solid var(--paper2); cursor: pointer; transition: background .12s;
 }
 .clist li:hover { background: var(--paper2); }
 .clist li.active { background: var(--coral); color: var(--paper); }
-.clist li.active .cn, .clist li.active .cc { color: rgba(242,232,213,.7); }
+.clist li.active .cn, .clist li.active .cc, .clist li.active .cm-t { color: rgba(242,232,213,.7); }
 .clist .cn { font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--mute); }
 .clist .cf { font-size: 18px; line-height: 1; }
-.clist .cm { font-family: "Spectral", serif; font-size: 15px; }
+.clist .cf img, .clist .cf svg { width: 26px !important; height: auto !important; }
+.clist .cm { font-family: "Spectral", serif; font-size: 15px; line-height: 1.2; }
+.clist .cm-t { font-style: italic; font-size: 11.5px; color: var(--mute); }
 .clist .cc { font-family: "IBM Plex Mono", monospace; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--mute); }
 
 /* COMPASS */
@@ -226,6 +297,24 @@ h1 em { font-style: italic; color: var(--arab-a2); }
   position: fixed; inset: 56px 0 0 0; pointer-events: none; z-index: 6;
   background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(42,33,22,.18) 100%);
 }
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .hr-stat { display: none; }
+  header { padding: 0 16px; }
+  .eyebrow { display: none; }
+}
+@media (max-width: 560px) {
+  .np { left: 14px; right: 14px; bottom: 14px; width: auto; }
+  .drawer { width: 272px; }
+  .drawer-btn.open { left: 292px; }
+  .drawer-btn, .zoom-ctl { top: 66px; }
+  .drawer-btn { left: 14px; }
+  .zoom-ctl { right: 14px; }
+  .compass { display: none; }
+  .tbtn { padding: 5px 8px; gap: 6px; }
+  .tbtn .tbtn-label { display: none; }
+}
 </style>
 </head>
 <body>
@@ -236,9 +325,12 @@ h1 em { font-style: italic; color: var(--arab-a2); }
     <h1>The Arab <em>World</em></h1>
   </div>
   <div class="header-r">
-    <span><strong>22</strong> Countries</span>
-    <span><strong>AR</strong> · العربية</span>
-    <span><strong>20</strong> Audio Tracks</span>
+    <span class="hr-stat"><strong>22</strong> Countries</span>
+    <span class="hr-stat"><strong>AR</strong> · العربية</span>
+    <span class="hr-stat"><strong>20</strong> Audio Tracks</span>
+    <button class="tbtn" id="translit-btn" aria-pressed="false" title="Show Latin transliteration of the Arabic names">
+      <span class="tbtn-box">abc</span><span class="tbtn-label">Transliteration</span><span class="tbtn-state" id="tbtn-state">Off</span>
+    </button>
   </div>
 </header>
 
@@ -266,6 +358,17 @@ h1 em { font-style: italic; color: var(--arab-a2); }
 
 <div id="vignette"></div>
 
+<!-- Tooltip -->
+<div id="tip" role="status"></div>
+
+<!-- Loading overlay -->
+<div class="load" id="load">
+  <div class="load-card" id="load-card">
+    <div class="load-spin"></div>
+    <span>Loading world map…</span>
+  </div>
+</div>
+
 <!-- Compass -->
 <svg class="compass" viewBox="0 0 100 100">
   <circle cx="50" cy="50" r="46" fill="none" stroke="var(--ink2)" stroke-width=".7" opacity=".6"/>
@@ -284,14 +387,14 @@ h1 em { font-style: italic; color: var(--arab-a2); }
 
 <!-- Zoom controls -->
 <div class="zoom-ctl">
-  <button id="z-in" title="Zoom in">+</button>
+  <button id="z-in" title="Zoom in" aria-label="Zoom in">+</button>
   <div id="zoom-label">100%</div>
-  <button id="z-out" title="Zoom out">−</button>
-  <button id="z-reset" title="Reset" style="font-size:14px;">⌂</button>
+  <button id="z-out" title="Zoom out" aria-label="Zoom out">−</button>
+  <button id="z-reset" title="Reset view" aria-label="Reset view" style="font-size:14px;">⌂</button>
 </div>
 
 <!-- Drawer -->
-<button class="drawer-btn" id="drawer-btn"><span class="arr">›</span> Countries</button>
+<button class="drawer-btn" id="drawer-btn" aria-expanded="false" aria-controls="drawer"><span class="arr">›</span> Countries</button>
 <aside class="drawer" id="drawer">
   <div class="drawer-head"><span>Arab League</span><strong>20 of 22</strong></div>
   <ul class="clist" id="clist"></ul>
@@ -300,14 +403,19 @@ h1 em { font-style: italic; color: var(--arab-a2); }
 <!-- Now Playing -->
 <div class="np" id="np">
   <div class="np-inner">
-    <div class="np-head"><span>Now Playing</span><button class="np-close" id="np-close">×</button></div>
+    <div class="np-head"><span>Now Playing</span><button class="np-close" id="np-close" aria-label="Close">×</button></div>
     <div class="np-flag" id="np-flag">🗺</div>
     <div class="np-num" id="np-num">01</div>
     <div class="np-name" id="np-name">—</div>
-    <div class="np-arabic" id="np-arabic"></div>
+    <div class="np-arabic" id="np-arabic" lang="ar"></div>
+    <div class="np-translit" id="np-translit"></div>
     <div class="np-capital"><span class="lbl">CAPITAL</span><span id="np-cap">—</span></div>
+    <div class="np-cap2">
+      <span class="np-cap-ar" id="np-cap-ar" lang="ar"></span>
+      <span class="np-cap-tr" id="np-cap-tr"></span>
+    </div>
     <div class="np-ctrl">
-      <button class="play-btn" id="play-btn">
+      <button class="play-btn" id="play-btn" aria-label="Play or pause audio">
         <svg width="13" height="14" viewBox="0 0 13 14" fill="currentColor"><path d="M1 1v12l11-6z"/></svg>
       </button>
       <div class="wave" id="wave">
@@ -320,12 +428,12 @@ h1 em { font-style: italic; color: var(--arab-a2); }
 </div>
 
 <!-- Hint -->
-<div class="hint" id="hint">Click a country to hear its name</div>
+<div class="hint" id="hint">Click a country to hear its name in Arabic</div>
 
 <!-- Remap -->
 <button class="remap-btn" id="remap-btn">⇄ Remap Audio</button>
 <div class="remap-box" id="remap-box">
-  <div class="rb-head"><span>Audio Remap</span><button id="rb-close">×</button></div>
+  <div class="rb-head"><span>Audio Remap</span><button id="rb-close" aria-label="Close">×</button></div>
   <div class="rb-body">
     <p>Play each audio file and assign it to the correct country.</p>
     <div class="rb-row">
@@ -350,7 +458,7 @@ h1 em { font-style: italic; color: var(--arab-a2); }
 // ─── Data ────────────────────────────────────────────────────────────────────
 // Flag helper — CDN img for all except Syria (new flag via SVG)
 function flagImg(code, alt) {
-  return `<img src="https://flagcdn.com/w80/${code}.png" alt="${alt}" style="width:48px;height:auto;border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,.25);vertical-align:middle;" onerror="this.style.display='none'">`;
+  return `<img src="https://flagcdn.com/w80/${code}.png" alt="${alt}" loading="lazy" style="width:48px;height:auto;border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,.25);vertical-align:middle;" onerror="this.style.display='none'">`;
 }
 const SYRIA_FLAG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="52" height="35" style="border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,.25);display:inline-block;vertical-align:middle">
   <rect width="900" height="200" y="0"   fill="#007A3D"/>
@@ -363,32 +471,35 @@ const SYRIA_FLAG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600
   </g>
 </svg>`;
 
+// Each country: name / Arabic name / transliteration (tr),
+// capital in English / Arabic (capAr) / transliteration (capTr).
+// `isos` lists every polygon id in the world-atlas dataset rendered as this country.
 const CD = [
-  { n:1,  iso:504, name:"Morocco",              ar:"المغرب",    cap:"Rabat",       flag:flagImg("ma","Morocco"),              lon:-6,   lat:32 },
-  { n:2,  iso:478, name:"Mauritania",           ar:"موريتانيا", cap:"Nouakchott",  flag:flagImg("mr","Mauritania"),           lon:-11,  lat:20 },
-  { n:3,  iso:12,  name:"Algeria",              ar:"الجزائر",   cap:"Algiers",     flag:flagImg("dz","Algeria"),              lon:2.5,  lat:28 },
-  { n:4,  iso:788, name:"Tunisia",              ar:"تونس",      cap:"Tunis",       flag:flagImg("tn","Tunisia"),              lon:9,    lat:34 },
-  { n:5,  iso:434, name:"Libya",                ar:"ليبيا",     cap:"Tripoli",     flag:flagImg("ly","Libya"),                lon:17,   lat:27 },
-  { n:6,  iso:818, name:"Egypt",                ar:"مصر",       cap:"Cairo",       flag:flagImg("eg","Egypt"),                lon:29,   lat:26 },
-  { n:7,  iso:729, name:"Sudan",                ar:"السودان",   cap:"Khartoum",    flag:flagImg("sd","Sudan"),                lon:30,   lat:14 },
-  { n:8,  iso:706, name:"Somalia",              ar:"الصومال",   cap:"Mogadishu",   flag:flagImg("so","Somalia"),              lon:46,   lat:6  },
-  { n:9,  iso:275, name:"Palestine",            ar:"فلسطين",    cap:"Jerusalem",   flag:flagImg("ps","Palestine"),            lon:35.2, lat:31.9},
-  { n:9,  iso:376, name:"Palestine",            ar:"فلسطين",    cap:"Jerusalem",   flag:flagImg("ps","Palestine"),            lon:35.2, lat:31.9},
-  { n:10, iso:422, name:"Lebanon",              ar:"لبنان",     cap:"Beirut",      flag:flagImg("lb","Lebanon"),              lon:35.9, lat:33.9},
-  { n:11, iso:760, name:"Syria",                ar:"سوريا",     cap:"Damascus",    flag:SYRIA_FLAG,                           lon:38,   lat:35 },
-  { n:12, iso:400, name:"Jordan",               ar:"الأردن",    cap:"Amman",       flag:flagImg("jo","Jordan"),               lon:36.5, lat:30.5},
-  { n:13, iso:368, name:"Iraq",                 ar:"العراق",    cap:"Baghdad",     flag:flagImg("iq","Iraq"),                 lon:43,   lat:33 },
-  { n:14, iso:414, name:"Kuwait",               ar:"الكويت",    cap:"Kuwait City", flag:flagImg("kw","Kuwait"),               lon:47.7, lat:29.3},
-  { n:15, iso:682, name:"Saudi Arabia",         ar:"السعودية",  cap:"Riyadh",      flag:flagImg("sa","Saudi Arabia"),         lon:44,   lat:23 },
-  { n:16, iso:48,  name:"Bahrain",              ar:"البحرين",   cap:"Manama",      flag:flagImg("bh","Bahrain"),              lon:50.5, lat:26 },
-  { n:17, iso:634, name:"Qatar",                ar:"قطر",       cap:"Doha",        flag:flagImg("qa","Qatar"),                lon:51.2, lat:25.3},
-  { n:18, iso:784, name:"United Arab Emirates", ar:"الإمارات",  cap:"Abu Dhabi",   flag:flagImg("ae","United Arab Emirates"), lon:54,   lat:24 },
-  { n:19, iso:512, name:"Oman",                 ar:"عُمان",     cap:"Muscat",      flag:flagImg("om","Oman"),                 lon:57,   lat:21 },
-  { n:20, iso:887, name:"Yemen",                ar:"اليمن",     cap:"Sana'a",      flag:flagImg("ye","Yemen"),                lon:48,   lat:16 }
+  { n:1,  isos:[504],     name:"Morocco",              ar:"المغرب",       tr:"al-Maghrib",     cap:"Rabat",       capAr:"الرباط",       capTr:"ar-Ribāṭ",           flag:flagImg("ma","Morocco"),              lon:-6,   lat:32 },
+  { n:2,  isos:[478],     name:"Mauritania",           ar:"موريتانيا",    tr:"Mūrītānyā",      cap:"Nouakchott",  capAr:"نواكشوط",      capTr:"Nawākshūṭ",          flag:flagImg("mr","Mauritania"),           lon:-11,  lat:20 },
+  { n:3,  isos:[12],      name:"Algeria",              ar:"الجزائر",      tr:"al-Jazāʾir",     cap:"Algiers",     capAr:"الجزائر",      capTr:"al-Jazāʾir",         flag:flagImg("dz","Algeria"),              lon:2.5,  lat:28 },
+  { n:4,  isos:[788],     name:"Tunisia",              ar:"تونس",         tr:"Tūnis",          cap:"Tunis",       capAr:"تونس",         capTr:"Tūnis",              flag:flagImg("tn","Tunisia"),              lon:9,    lat:34 },
+  { n:5,  isos:[434],     name:"Libya",                ar:"ليبيا",        tr:"Lībyā",          cap:"Tripoli",     capAr:"طرابلس",       capTr:"Ṭarābulus",          flag:flagImg("ly","Libya"),                lon:17,   lat:27 },
+  { n:6,  isos:[818],     name:"Egypt",                ar:"مصر",          tr:"Miṣr",           cap:"Cairo",       capAr:"القاهرة",      capTr:"al-Qāhira",          flag:flagImg("eg","Egypt"),                lon:29,   lat:26 },
+  { n:7,  isos:[729],     name:"Sudan",                ar:"السودان",      tr:"as-Sūdān",       cap:"Khartoum",    capAr:"الخرطوم",      capTr:"al-Kharṭūm",         flag:flagImg("sd","Sudan"),                lon:30,   lat:14 },
+  { n:8,  isos:[706],     name:"Somalia",              ar:"الصومال",      tr:"aṣ-Ṣūmāl",       cap:"Mogadishu",   capAr:"مقديشو",       capTr:"Maqadīshū",          flag:flagImg("so","Somalia"),              lon:46,   lat:6  },
+  { n:9,  isos:[275,376], name:"Palestine",            ar:"فلسطين",       tr:"Filasṭīn",       cap:"Jerusalem",   capAr:"القدس",        capTr:"al-Quds",            flag:flagImg("ps","Palestine"),            lon:35.2, lat:31.9},
+  { n:10, isos:[422],     name:"Lebanon",              ar:"لبنان",        tr:"Lubnān",         cap:"Beirut",      capAr:"بيروت",        capTr:"Bayrūt",             flag:flagImg("lb","Lebanon"),              lon:35.9, lat:33.9},
+  { n:11, isos:[760],     name:"Syria",                ar:"سوريا",        tr:"Sūriyā",         cap:"Damascus",    capAr:"دمشق",         capTr:"Dimashq",            flag:SYRIA_FLAG,                           lon:38,   lat:35 },
+  { n:12, isos:[400],     name:"Jordan",               ar:"الأردن",       tr:"al-ʾUrdunn",     cap:"Amman",       capAr:"عمّان",        capTr:"ʿAmmān",             flag:flagImg("jo","Jordan"),               lon:36.5, lat:30.5},
+  { n:13, isos:[368],     name:"Iraq",                 ar:"العراق",       tr:"al-ʿIrāq",       cap:"Baghdad",     capAr:"بغداد",        capTr:"Baghdād",            flag:flagImg("iq","Iraq"),                 lon:43,   lat:33 },
+  { n:14, isos:[414],     name:"Kuwait",               ar:"الكويت",       tr:"al-Kuwayt",      cap:"Kuwait City", capAr:"مدينة الكويت", capTr:"Madīnat al-Kuwayt",  flag:flagImg("kw","Kuwait"),               lon:47.7, lat:29.3},
+  { n:15, isos:[682],     name:"Saudi Arabia",         ar:"السعودية",     tr:"as-Suʿūdiyya",   cap:"Riyadh",      capAr:"الرياض",       capTr:"ar-Riyāḍ",           flag:flagImg("sa","Saudi Arabia"),         lon:44,   lat:23 },
+  { n:16, isos:[48],      name:"Bahrain",              ar:"البحرين",      tr:"al-Baḥrayn",     cap:"Manama",      capAr:"المنامة",      capTr:"al-Manāma",          flag:flagImg("bh","Bahrain"),              lon:50.5, lat:26 },
+  { n:17, isos:[634],     name:"Qatar",                ar:"قطر",          tr:"Qaṭar",          cap:"Doha",        capAr:"الدوحة",       capTr:"ad-Dawḥa",           flag:flagImg("qa","Qatar"),                lon:51.2, lat:25.3},
+  { n:18, isos:[784],     name:"United Arab Emirates", ar:"الإمارات",     tr:"al-ʾImārāt",     cap:"Abu Dhabi",   capAr:"أبوظبي",       capTr:"ʾAbū Ẓaby",          flag:flagImg("ae","United Arab Emirates"), lon:54,   lat:24 },
+  { n:19, isos:[512],     name:"Oman",                 ar:"عُمان",        tr:"ʿUmān",          cap:"Muscat",      capAr:"مسقط",         capTr:"Masqaṭ",             flag:flagImg("om","Oman"),                 lon:57,   lat:21 },
+  { n:20, isos:[887],     name:"Yemen",                ar:"اليمن",        tr:"al-Yaman",       cap:"Sana'a",      capAr:"صنعاء",        capTr:"Ṣanʿāʾ",             flag:flagImg("ye","Yemen"),                lon:48,   lat:16 }
 ];
 const ISO_TO_N = {};
-CD.forEach(c => { ISO_TO_N[c.iso] = c.n; });
-const ARAB_ISO = new Set(CD.map(c => c.iso));
+CD.forEach(c => c.isos.forEach(iso => { ISO_TO_N[iso] = c.n; }));
+const ARAB_ISO = new Set(Object.keys(ISO_TO_N).map(Number));
+const N_MAX = CD.length;
 
 const AUDIO_MAP_DEFAULT = /*EDITMODE-BEGIN*/{
   "1":10,"2":9,"3":19,"4":17,"5":8,
@@ -399,15 +510,28 @@ const AUDIO_MAP_DEFAULT = /*EDITMODE-BEGIN*/{
 let AUDIO_MAP = { ...AUDIO_MAP_DEFAULT };
 try { const s = localStorage.getItem("am3"); if (s) AUDIO_MAP = { ...AUDIO_MAP, ...JSON.parse(s) }; } catch(e){}
 
+// ─── Transliteration toggle ──────────────────────────────────────────────────
+const translitBtn = document.getElementById("translit-btn");
+function setTranslit(on) {
+  document.body.classList.toggle("translit-on", on);
+  translitBtn.setAttribute("aria-pressed", String(on));
+  document.getElementById("tbtn-state").textContent = on ? "On" : "Off";
+  try { localStorage.setItem("translit", on ? "1" : "0"); } catch(e) {}
+}
+translitBtn.addEventListener("click", () => setTranslit(!document.body.classList.contains("translit-on")));
+try { setTranslit(localStorage.getItem("translit") === "1"); } catch(e) {}
+
 // ─── Map setup ────────────────────────────────────────────────────────────────
 const wrap = document.getElementById("wrap");
 const svgEl = document.getElementById("map");
-const { width: W, height: H } = wrap.getBoundingClientRect();
+let { width: W, height: H } = wrap.getBoundingClientRect();
 const svg = d3.select(svgEl).attr("width", W).attr("height", H);
 
-// Projection: Mercator, fitted to Arab world bounding box
+// Projection: Mercator, fitted to Arab world bounding box.
+// The ring must wind clockwise — d3 treats counter-clockwise spherical rings
+// as "everything but the box", which made fitExtent frame the whole world.
 const ARAB_BOX = { type:"Feature", geometry:{ type:"Polygon",
-  coordinates:[[[-22,-12],[67,-12],[67,44],[-22,44],[-22,-12]]] }};
+  coordinates:[[[-22,-12],[-22,44],[67,44],[67,-12],[-22,-12]]] }};
 const proj = d3.geoMercator().fitExtent([[30,30],[W-30,H-30]], ARAB_BOX);
 const path = d3.geoPath(proj);
 
@@ -435,94 +559,175 @@ const zoom = d3.zoom()
     gArab.attr("transform", t);
     gMark.attr("transform", t);
     gGrid.attr("transform", t);
-    document.getElementById("zoom-label").textContent = Math.round(t.k * 100 / baseK) + "%";
+    // Keep small-country markers a constant size on screen
+    gMark.selectAll("circle").attr("r", Math.max(3, 7 / t.k));
+    document.getElementById("zoom-label").textContent = Math.round(t.k * 100) + "%";
   });
 svg.call(zoom).on("dblclick.zoom", null);
-d3.select("#map").classed("dragging", false);
-svg.on("mousedown", () => d3.select("#map").classed("dragging", true));
-svg.on("mouseup", () => d3.select("#map").classed("dragging", false));
+svg.on("mousedown.cursor", () => d3.select("#map").classed("dragging", true));
+svg.on("mouseup.cursor", () => d3.select("#map").classed("dragging", false));
+// Click on open water / foreign land dismisses the current selection
+svg.on("click.deselect", (ev) => {
+  if (ev.defaultPrevented) return;               // ignore click at end of a drag
+  if (ev.target.closest(".arab-path, .small-marker")) return;
+  deselect(false);
+});
 
-let baseK = 1;
+// ─── Tooltip ─────────────────────────────────────────────────────────────────
+const tip = document.getElementById("tip");
+function tipShow(c, ev) {
+  tip.innerHTML = `<strong>${c.name}</strong> · <span class="tip-ar" lang="ar">${c.ar}</span>` +
+                  `<em class="tip-tr"> · ${c.tr}</em>`;
+  tip.classList.add("vis");
+  tipMove(ev);
+}
+function tipMove(ev) {
+  const pad = 14, tw = tip.offsetWidth, th = tip.offsetHeight;
+  let x = ev.clientX + pad, y = ev.clientY + pad;
+  if (x + tw > window.innerWidth - 8)  x = ev.clientX - tw - pad;
+  if (y + th > window.innerHeight - 8) y = ev.clientY - th - pad;
+  tip.style.left = x + "px";
+  tip.style.top  = y + "px";
+}
+function tipHide() { tip.classList.remove("vis"); }
+
+// ─── Golan Heights border fix ────────────────────────────────────────────────
+// The world-atlas dataset draws Syria's south-west border along the 1967 line,
+// leaving the Golan Heights outside Syria. Rebuild both affected rings so the
+// Golan is part of Syria, with the border following the Yarmouk River, the
+// eastern shore of the Sea of Galilee and the upper Jordan River.
+const GOLAN_WEST = [ // south → north
+  [35.585,32.690],[35.596,32.723],[35.622,32.748],[35.641,32.780],
+  [35.648,32.820],[35.643,32.860],[35.630,32.888],   // Sea of Galilee, east shore
+  [35.633,32.930],[35.625,32.980],[35.617,33.030],[35.613,33.080],
+  [35.622,33.130],[35.637,33.180],[35.650,33.225]    // upper Jordan River valley
+];
+const YARMOUK_CONFLUENCE = [35.5738,32.6410]; // Yarmouk–Jordan rivers, tripoint with Jordan
+const GHAJAR_TRIPOINT    = [35.6278,33.2746]; // tripoint with Lebanon
+function fixGolan(features) {
+  const near = (p, q) => Math.abs(p[0]-q[0]) < 1e-3 && Math.abs(p[1]-q[1]) < 1e-3;
+  const idxOf = (ring, pt) => ring.findIndex(p => near(p, pt));
+  const syria  = features.find(f => +f.id === 760);
+  const israel = features.find(f => +f.id === 376);
+  if (!syria || !israel) return;
+  const sRing = syria.geometry.coordinates[0];
+  const iRing = israel.geometry.coordinates[0];
+  const sA = idxOf(sRing, [35.7862,32.7347]);  // on the Yarmouk, tripoint with Jordan
+  const sB = idxOf(sRing, [35.8690,33.4326]);  // Mt Hermon, tripoint with Lebanon
+  const iC = idxOf(iRing, YARMOUK_CONFLUENCE);
+  const iD = idxOf(iRing, GHAJAR_TRIPOINT);
+  if (sA < 0 || sB < 0 || iC < 0 || iD < 0 || sA >= sB || iC >= iD) return; // dataset changed — leave as-is
+  // Syria: swap the 1967-line detour for the river line (vertices shared with
+  // Jordan along the Yarmouk and with Lebanon along the Hermon slopes).
+  sRing.splice(sA + 1, sB - sA - 1,
+    [35.7358,32.7295],[35.6098,32.6826],[35.5954,32.6687], YARMOUK_CONFLUENCE,
+    ...GOLAN_WEST,
+    GHAJAR_TRIPOINT, [35.7358,33.3319],[35.7862,33.3701],[35.8402,33.4152]);
+  // Israel/Palestine polygon: cut the Golan off along the same river line so it
+  // cannot paint over Syria (this polygon is drawn after Syria).
+  const keep = iRing.slice(iC, iD + 1);
+  israel.geometry.coordinates[0] = [...keep, ...[...GOLAN_WEST].reverse(), keep[0]];
+}
 
 // ─── Load Topojson ────────────────────────────────────────────────────────────
-fetch("https://unpkg.com/world-atlas@2/countries-50m.json")
-  .then(r => r.json())
-  .then(world => {
-    const features = topojson.feature(world, world.objects.countries).features;
+const WORLD_URLS = [
+  "https://unpkg.com/world-atlas@2/countries-50m.json",
+  "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json"
+];
+let featuresByN = {};   // n → topo features rendered for that country
 
-    // Non-Arab land background
-    gLand.selectAll("path")
-      .data(features.filter(f => !ARAB_ISO.has(+f.id)))
-      .join("path")
-      .attr("class","land-bg")
-      .attr("d", path);
+async function loadWorld() {
+  let lastErr;
+  for (const url of WORLD_URLS) {
+    try {
+      const r = await fetch(url);
+      if (r.ok) return await r.json();
+      lastErr = new Error("HTTP " + r.status);
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error("Could not load map data");
+}
 
-    // Arab country paths
-    const arabFeatures = features.filter(f => ARAB_ISO.has(+f.id));
-    const foundISOs = new Set(arabFeatures.map(f => +f.id));
-
-    gArab.selectAll("path")
-      .data(arabFeatures)
-      .join("path")
-      .attr("class","arab-path")
-      .attr("data-n", f => ISO_TO_N[+f.id])
-      .attr("d", path)
-      .on("click", (ev, f) => {
-        ev.stopPropagation();
-        const n = ISO_TO_N[+f.id];
-        if (n) selectCountry(n, f);
-      });
-
-    // Fallback markers for countries missing in dataset (very small: Bahrain etc)
-    const missing = CD.filter(c => !foundISOs.has(c.iso));
-    missing.forEach(c => {
-      const [px, py] = proj([c.lon, c.lat]);
-      gMark.append("circle")
-        .attr("class","small-marker")
-        .attr("cx", px).attr("cy", py).attr("r", 7)
-        .attr("data-n", c.n)
-        .on("click", (ev) => {
-          ev.stopPropagation();
-          selectCountry(c.n, null, [px, py]);
-        });
+function startLoad() {
+  const box = document.getElementById("load");
+  const card = document.getElementById("load-card");
+  box.classList.remove("hide");
+  card.innerHTML = `<div class="load-spin"></div><span>Loading world map…</span>`;
+  loadWorld()
+    .then(world => { box.classList.add("hide"); buildMap(world); })
+    .catch(() => {
+      card.innerHTML = `<span>Could not load the map data.<br>Check your connection.</span>
+        <button class="load-retry" id="load-retry">Retry</button>`;
+      document.getElementById("load-retry").addEventListener("click", startLoad);
     });
+}
 
-    // Custom Golan Heights polygon — rendered as Syria, on top of Israel/Palestine layer
-    const golanCoords = [[
-      [35.62, 33.25], [35.78, 33.33], [35.92, 33.30],
-      [35.97, 33.18], [35.97, 32.93], [35.87, 32.72],
-      [35.72, 32.62], [35.57, 32.68], [35.55, 32.88],
-      [35.58, 33.10], [35.62, 33.25]
-    ]];
-    const golanFeature = { type:"Feature", id:"golan-syria", geometry:{ type:"Polygon", coordinates: golanCoords }};
-    gArab.append("path")
-      .datum(golanFeature)
-      .attr("class","arab-path golan-patch")
-      .attr("data-n", 11) // Syria
-      .attr("d", path)
-      .on("click", (ev) => { ev.stopPropagation(); selectCountry(11, null, proj([35.75, 33.0])); });
+function buildMap(world) {
+  const features = topojson.feature(world, world.objects.countries).features;
+  fixGolan(features);
 
-    // Store base transform scale for zoom percentage
-    baseK = d3.zoomTransform(svgEl).k || 1;
-    // Fit to view initially
-    resetView(false);
+  // Non-Arab land background
+  gLand.selectAll("path")
+    .data(features.filter(f => !ARAB_ISO.has(+f.id)))
+    .join("path")
+    .attr("class","land-bg")
+    .attr("d", path);
+
+  // Arab country paths
+  const arabFeatures = features.filter(f => ARAB_ISO.has(+f.id));
+  featuresByN = {};
+  arabFeatures.forEach(f => {
+    const n = ISO_TO_N[+f.id];
+    (featuresByN[n] = featuresByN[n] || []).push(f);
   });
+
+  gArab.selectAll("path")
+    .data(arabFeatures)
+    .join("path")
+    .attr("class","arab-path")
+    .attr("data-n", f => ISO_TO_N[+f.id])
+    .attr("d", path)
+    .on("click", (ev, f) => {
+      ev.stopPropagation();
+      const n = ISO_TO_N[+f.id];
+      if (n) selectCountry(n);
+    })
+    .on("mouseenter", (ev, f) => { const c = CD.find(x => x.n === ISO_TO_N[+f.id]); if (c) tipShow(c, ev); })
+    .on("mousemove", (ev) => tipMove(ev))
+    .on("mouseleave", tipHide);
+
+  // Fallback markers for countries missing in dataset (very small: Bahrain etc)
+  const foundISOs = new Set(arabFeatures.map(f => +f.id));
+  const missing = CD.filter(c => !c.isos.some(iso => foundISOs.has(iso)));
+  gMark.selectAll("circle")
+    .data(missing)
+    .join("circle")
+    .attr("class","small-marker")
+    .attr("cx", c => proj([c.lon, c.lat])[0])
+    .attr("cy", c => proj([c.lon, c.lat])[1])
+    .attr("r", 7)
+    .attr("data-n", c => c.n)
+    .on("click", (ev, c) => { ev.stopPropagation(); selectCountry(c.n); })
+    .on("mouseenter", (ev, c) => tipShow(c, ev))
+    .on("mousemove", (ev) => tipMove(ev))
+    .on("mouseleave", tipHide);
+
+  resetView(false);
+}
+startLoad();
 
 // ─── Selection ────────────────────────────────────────────────────────────────
 let currentN = null;
 let aud = null;
 
-function selectCountry(n, feature, fallbackPx) {
+function selectCountry(n) {
   const c = CD.find(x => x.n === n);
   if (!c) return;
   currentN = n;
   hideHint();
 
   // Highlight map
-  d3.selectAll(".arab-path").classed("active", f => {
-    if (f.id === "golan-syria") return n === 11; // Golan highlights with Syria
-    return ISO_TO_N[+f.id] === n;
-  });
+  d3.selectAll(".arab-path").classed("active", f => ISO_TO_N[+f.id] === n);
   d3.selectAll(".small-marker").classed("active", function() { return +this.dataset.n === n; });
 
   // List
@@ -542,19 +747,28 @@ function selectCountry(n, feature, fallbackPx) {
   document.getElementById("np-num").textContent = String(n).padStart(2,"0");
   document.getElementById("np-name").textContent = c.name;
   document.getElementById("np-arabic").textContent = c.ar;
+  document.getElementById("np-translit").textContent = c.tr;
   document.getElementById("np-cap").textContent = c.cap;
+  document.getElementById("np-cap-ar").textContent = c.capAr;
+  document.getElementById("np-cap-tr").textContent = c.capTr;
   document.getElementById("np").classList.add("show");
 
-  // Zoom to country
-  if (feature) {
-    const [[x0,y0],[x1,y1]] = path.bounds(feature);
+  // Zoom to country (all of its polygons combined), or to its marker
+  const feats = featuresByN[n];
+  if (feats && feats.length) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    feats.forEach(f => {
+      const b = path.bounds(f);
+      x0 = Math.min(x0, b[0][0]); y0 = Math.min(y0, b[0][1]);
+      x1 = Math.max(x1, b[1][0]); y1 = Math.max(y1, b[1][1]);
+    });
     const dx = x1-x0, dy = y1-y0;
     const cx = (x0+x1)/2, cy = (y0+y1)/2;
     const targetK = Math.max(1.5, Math.min(9, 0.72 / Math.max(dx/W, dy/H)));
     svg.transition().duration(700)
       .call(zoom.transform, d3.zoomIdentity.translate(W/2 - targetK*cx, H/2 - targetK*cy).scale(targetK));
-  } else if (fallbackPx) {
-    const [px, py] = fallbackPx;
+  } else {
+    const [px, py] = proj([c.lon, c.lat]);
     const k = 6;
     svg.transition().duration(700)
       .call(zoom.transform, d3.zoomIdentity.translate(W/2 - k*px, H/2 - k*py).scale(k));
@@ -563,13 +777,24 @@ function selectCountry(n, feature, fallbackPx) {
   playAudio(n);
 }
 
+function deselect(resetZoom) {
+  document.getElementById("np").classList.remove("show");
+  if (aud) aud.pause();
+  d3.selectAll(".arab-path,.small-marker").classed("active", false);
+  document.querySelectorAll(".clist li.active").forEach(li => li.classList.remove("active"));
+  currentN = null;
+  if (resetZoom) resetView();
+}
+
 function playAudio(n) {
   if (aud) { aud.pause(); aud.currentTime = 0; }
   const aN = AUDIO_MAP[String(n)] || n;
   aud = new Audio(`assets/audio/${String(aN).padStart(2,"0")}.mp3`);
+  aud.preload = "auto";
   aud.addEventListener("play",  () => { setWave(true);  setPlayIcon(true); });
   aud.addEventListener("pause", () => { setWave(false); setPlayIcon(false); });
   aud.addEventListener("ended", () => { setWave(false); setPlayIcon(false); });
+  aud.addEventListener("error", () => { setWave(false); setPlayIcon(false); });
   aud.play().catch(()=>{});
 }
 function setWave(on) { document.getElementById("wave").classList.toggle("on", on); }
@@ -583,7 +808,6 @@ function resetView(animate = true) {
   const t = d3.zoomIdentity;
   if (animate) svg.transition().duration(600).call(zoom.transform, t);
   else svg.call(zoom.transform, t);
-  baseK = d3.zoomTransform(svgEl).k || 1;
   document.getElementById("zoom-label").textContent = "100%";
 }
 
@@ -592,13 +816,7 @@ document.getElementById("play-btn").addEventListener("click", () => {
   if (!aud) { if (currentN) playAudio(currentN); return; }
   aud.paused ? aud.play() : aud.pause();
 });
-document.getElementById("np-close").addEventListener("click", () => {
-  document.getElementById("np").classList.remove("show");
-  if (aud) aud.pause();
-  d3.selectAll(".arab-path,.small-marker").classed("active", false);
-  currentN = null;
-  resetView();
-});
+document.getElementById("np-close").addEventListener("click", () => deselect(true));
 
 // Zoom buttons
 const zBtn = (factor) => {
@@ -615,8 +833,9 @@ document.getElementById("z-reset").addEventListener("click", () => resetView());
 const drawerBtn = document.getElementById("drawer-btn");
 const drawer = document.getElementById("drawer");
 drawerBtn.addEventListener("click", () => {
-  drawer.classList.toggle("open");
-  drawerBtn.classList.toggle("open");
+  const open = drawer.classList.toggle("open");
+  drawerBtn.classList.toggle("open", open);
+  drawerBtn.setAttribute("aria-expanded", String(open));
 });
 
 // Build country list
@@ -624,38 +843,26 @@ const clist = document.getElementById("clist");
 CD.forEach(c => {
   const li = document.createElement("li");
   li.dataset.n = c.n;
-  li.innerHTML = `<span class="cn">${String(c.n).padStart(2,"0")}</span><span class="cf">${c.flag}</span><span class="cm">${c.name}</span><span class="cc">${c.cap}</span>`;
-  li.addEventListener("click", () => {
-    const feat = findFeature(c.iso);
-    selectCountry(c.n, feat, feat ? null : proj([c.lon, c.lat]));
-  });
+  li.innerHTML = `<span class="cn">${String(c.n).padStart(2,"0")}</span><span class="cf">${c.flag}</span>` +
+    `<span class="cm">${c.name}<span class="cm-t">${c.tr}</span></span><span class="cc">${c.cap}</span>`;
+  li.addEventListener("click", () => selectCountry(c.n));
   clist.appendChild(li);
 });
-function findFeature(iso) {
-  const paths = d3.selectAll(".arab-path").data();
-  // Palestine: combine 275 + 376
-  if (iso === 275 || iso === 376) {
-    return paths.find(f => +f.id === 275) || paths.find(f => +f.id === 376) || null;
-  }
-  return paths.find(f => +f.id === iso) || null;
-}
 
 // Keyboard nav
 document.addEventListener("keydown", e => {
-  if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+  if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
   if (e.key === "ArrowRight" || e.key === "ArrowDown") {
-    const nx = currentN ? Math.min(20, currentN+1) : 1;
-    const c = CD.find(x=>x.n===nx);
-    selectCountry(nx, findFeature(c.iso), findFeature(c.iso) ? null : proj([c.lon, c.lat]));
+    selectCountry(currentN ? Math.min(N_MAX, currentN + 1) : 1);
     e.preventDefault();
   } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-    const nx = currentN ? Math.max(1, currentN-1) : 1;
-    const c = CD.find(x=>x.n===nx);
-    selectCountry(nx, findFeature(c.iso), findFeature(c.iso) ? null : proj([c.lon, c.lat]));
+    selectCountry(currentN ? Math.max(1, currentN - 1) : 1);
     e.preventDefault();
   } else if (e.key === " " && currentN) {
     if (aud) { aud.paused ? aud.play() : aud.pause(); e.preventDefault(); }
-  } else if (e.key === "Escape") { resetView(); }
+  } else if (e.key === "Escape") {
+    currentN ? deselect(true) : resetView();
+  }
   else if (e.key === "+" || e.key === "=") { zBtn(1.4); }
   else if (e.key === "-" || e.key === "_") { zBtn(1/1.4); }
 });
@@ -665,6 +872,25 @@ const hintEl = document.getElementById("hint");
 function showHint() { hintEl.classList.add("show"); setTimeout(() => hintEl.classList.remove("show"), 4000); }
 function hideHint() { hintEl.classList.remove("show"); }
 showHint();
+
+// ─── Resize (re-fit in place, no reload) ─────────────────────────────────────
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(applySize, 150);
+});
+function applySize() {
+  ({ width: W, height: H } = wrap.getBoundingClientRect());
+  svg.attr("width", W).attr("height", H);
+  gSea.selectAll("rect").attr("width", W).attr("height", H);
+  proj.fitExtent([[30,30],[W-30,H-30]], ARAB_BOX);
+  gGrid.selectAll("path").attr("d", path);
+  gLand.selectAll("path").attr("d", path);
+  gArab.selectAll("path").attr("d", path);
+  gMark.selectAll("circle")
+    .attr("cx", c => proj([c.lon, c.lat])[0])
+    .attr("cy", c => proj([c.lon, c.lat])[1]);
+}
 
 // ─── Remap panel ─────────────────────────────────────────────────────────────
 const remapBtn = document.getElementById("remap-btn");
@@ -719,9 +945,6 @@ window.addEventListener("message", ev => {
   else if (ev.data?.type === "__deactivate_edit_mode") { remapBtn.classList.remove("vis"); remapBox.classList.remove("vis"); }
 });
 try { window.parent.postMessage({type:"__edit_mode_available"}, "*"); } catch(e) {}
-
-// Resize handler
-window.addEventListener("resize", () => { location.reload(); });
 </script>
 </body>
 </html>
