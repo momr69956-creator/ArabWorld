@@ -2,13 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="description" content="Interactive atlas of the Arab world — click a country to hear its name and capital in Arabic, with optional Latin transliteration." />
+<meta name="theme-color" content="#F2E8D5" />
 <title>The Arab World — Interactive Atlas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://flagcdn.com" />
-<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<!-- Fonts load without blocking the first paint -->
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+<noscript><link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" /></noscript>
 <style>
 :root {
   --paper: #F2E8D5;
@@ -30,17 +33,18 @@
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; overflow: hidden; background: var(--paper); color: var(--ink); font-family: "IBM Plex Sans", sans-serif; -webkit-font-smoothing: antialiased; }
+html { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+button { touch-action: manipulation; }
 
 /* HEADER */
 header {
   position: fixed; top: 0; left: 0; right: 0; height: 56px; z-index: 20;
   display: flex; align-items: center; justify-content: space-between; padding: 0 28px;
-  background: rgba(242,232,213,.97); border-bottom: 1px solid var(--rule);
-  backdrop-filter: blur(8px);
+  background: var(--paper); border-bottom: 1px solid var(--rule);
 }
 .brand { display: flex; align-items: baseline; gap: 14px; }
 .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: var(--mute); }
-h1 { font-family: "Spectral", serif; font-weight: 400; font-size: 21px; }
+h1 { font-family: "Spectral", serif; font-weight: 400; font-size: 21px; white-space: nowrap; }
 h1 em { font-style: italic; color: var(--arab-a2); }
 .header-r { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--mute); display: flex; align-items: center; gap: 20px; }
 .header-r strong { color: var(--ink); font-weight: 500; }
@@ -69,40 +73,45 @@ body.translit-on .tbtn .tbtn-state { color: var(--arab-h); }
 body.translit-on .np-translit, body.translit-on .cm-t { display: block; }
 body.translit-on .np-cap-tr, body.translit-on .tip-tr { display: inline; }
 
-/* MAP */
-#wrap { position: fixed; inset: 56px 0 0 0; overflow: hidden; }
-#map { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
-#map.dragging { cursor: grabbing; }
+/* MAP — the sea is a CSS background so it never has to be repainted with the map */
+#wrap {
+  position: fixed; inset: 56px 0 0 0; overflow: hidden; contain: strict;
+  cursor: grab; touch-action: none;
+  background-color: var(--sea);
+  background-image: repeating-linear-gradient(35deg, transparent 0 9.4px, rgba(125,173,168,.25) 9.4px 10px);
+}
+#wrap.dragging { cursor: grabbing; }
+#map { position: absolute; display: block; will-change: transform; }
 
 /* SVG map layers */
-.sea-fill { fill: var(--sea); }
-.sea-lines { fill: url(#seaPat); }
-.graticule { fill: none; stroke: var(--sea2); stroke-width: .35; opacity: .55; }
-.sphere-border { fill: none; stroke: var(--sea2); stroke-width: .6; }
-.land-bg { fill: var(--land); stroke: #8A9090; stroke-width: .6; stroke-linejoin: round; vector-effect: non-scaling-stroke; pointer-events: none; }
+.graticule { fill: none; stroke: var(--sea2); stroke-width: .5; opacity: .5; vector-effect: non-scaling-stroke; pointer-events: none; }
+.land { fill: var(--land); stroke: #8A9090; stroke-width: .6; stroke-linejoin: round; vector-effect: non-scaling-stroke; pointer-events: none; }
+.borders { fill: none; stroke: #8A9090; stroke-width: .6; stroke-linejoin: round; vector-effect: non-scaling-stroke; pointer-events: none; }
+#map.moving .land, #map.moving .borders { stroke: none; }
 .arab-path {
   fill: var(--arab); stroke: var(--ink2); stroke-width: .8; stroke-linejoin: round;
   vector-effect: non-scaling-stroke; cursor: pointer;
   transition: fill .18s ease;
 }
-.arab-path:hover { fill: var(--arab-h); }
 .arab-path.active { fill: var(--arab-a); stroke: var(--arab-a2); stroke-width: 1.2; }
-/* Small-country markers (Bahrain etc if not in topo) */
+/* Small-country markers (only used if a country is missing from the map data) */
 .small-marker {
   fill: var(--arab); stroke: var(--ink2); stroke-width: 1; cursor: pointer;
   vector-effect: non-scaling-stroke; transition: fill .18s;
 }
-.small-marker:hover { fill: var(--arab-h); }
 .small-marker.active { fill: var(--arab-a); stroke: var(--arab-a2); }
+@media (hover: hover) {
+  .arab-path:hover:not(.active), .small-marker:hover:not(.active) { fill: var(--arab-h); }
+}
 
-/* TOOLTIP */
+/* TOOLTIP (mouse only) */
 #tip {
-  position: fixed; z-index: 25; pointer-events: none;
+  position: fixed; left: 0; top: 0; z-index: 25; pointer-events: none;
   background: rgba(42,33,24,.94); color: var(--paper);
   padding: 7px 12px; border-radius: 3px; max-width: 260px;
   font-size: 12.5px; line-height: 1.4;
   box-shadow: 0 4px 14px rgba(0,0,0,.25);
-  opacity: 0; transition: opacity .12s;
+  opacity: 0; transition: opacity .12s; will-change: transform;
 }
 #tip.vis { opacity: 1; }
 #tip strong { font-family: "Spectral", serif; font-weight: 600; }
@@ -113,7 +122,7 @@ body.translit-on .np-cap-tr, body.translit-on .tip-tr { display: inline; }
 .load {
   position: fixed; inset: 56px 0 0 0; z-index: 12;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(242,232,213,.55); backdrop-filter: blur(2px);
+  background: rgba(242,232,213,.55);
 }
 .load.hide { display: none; }
 .load-card {
@@ -152,7 +161,7 @@ body.translit-on .np-cap-tr, body.translit-on .tip-tr { display: inline; }
 #zoom-label {
   font-family: "IBM Plex Mono", monospace; font-size: 9px; letter-spacing: .1em;
   text-align: center; padding: 4px 0; background: var(--paper2); color: var(--mute);
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule); font-variant-numeric: tabular-nums;
 }
 
 /* NOW PLAYING */
@@ -160,19 +169,20 @@ body.translit-on .np-cap-tr, body.translit-on .tip-tr { display: inline; }
   position: fixed; right: 24px; bottom: 24px; width: 340px; z-index: 18;
   background: var(--ink); color: var(--paper); border-radius: 4px;
   box-shadow: 0 14px 40px rgba(0,0,0,.28);
-  transform: translateY(130%); opacity: 0;
-  transition: transform .45s cubic-bezier(.22,.61,.36,1), opacity .3s;
+  transform: translateY(130%); opacity: 0; visibility: hidden;
+  transition: transform .45s cubic-bezier(.22,.61,.36,1), opacity .3s, visibility 0s linear .45s;
 }
-.np.show { transform: translateY(0); opacity: 1; }
+.np.show { transform: translateY(0); opacity: 1; visibility: visible; transition: transform .45s cubic-bezier(.22,.61,.36,1), opacity .3s, visibility 0s; }
 .np-inner { padding: 18px 20px 16px; }
 .np-head {
   display: flex; justify-content: space-between; align-items: center;
   font-family: "IBM Plex Mono", monospace; font-size: 9.5px;
   letter-spacing: .22em; text-transform: uppercase; color: rgba(242,232,213,.45); margin-bottom: 8px;
 }
-.np-close { background: none; border: none; color: rgba(242,232,213,.45); cursor: pointer; font-size: 18px; line-height: 1; transition: color .15s; }
+.np-close { background: none; border: none; color: rgba(242,232,213,.45); cursor: pointer; font-size: 18px; line-height: 1; padding: 4px 6px; margin: -4px -6px; transition: color .15s; }
 .np-close:hover { color: var(--paper); }
-.np-flag { line-height: 1; margin-bottom: 10px; }
+.np-id { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.np-flag { line-height: 1; min-height: 32px; }
 .np-num { font-family: "Spectral", serif; font-weight: 300; font-size: 46px; line-height: 1; color: var(--coral); font-variant-numeric: tabular-nums; }
 .np-name { font-family: "Spectral", serif; font-size: 25px; line-height: 1.15; margin-top: 4px; }
 .np-arabic { font-family: "Spectral", serif; font-size: 19px; font-weight: 300; color: var(--gold); direction: rtl; margin-top: 3px; }
@@ -184,21 +194,21 @@ body.translit-on .np-cap-tr, body.translit-on .tip-tr { display: inline; }
 .np-cap2 .np-cap-tr { font-family: "Spectral", serif; font-style: italic; font-size: 13.5px; color: rgba(242,232,213,.75); }
 .np-ctrl { display: flex; align-items: center; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(242,232,213,.1); }
 .play-btn {
-  width: 40px; height: 40px; border-radius: 50%; background: var(--coral);
+  width: 40px; height: 40px; border-radius: 50%; background: var(--coral); flex: none;
   border: none; color: var(--ink); cursor: pointer; display: grid; place-items: center;
   transition: background .15s, transform .1s;
 }
 .play-btn:hover { background: #D86B47; }
 .play-btn:active { transform: scale(.94); }
 .wave { flex: 1; display: flex; align-items: center; gap: 2px; height: 22px; }
-.wave .b { flex: 1; background: rgba(242,232,213,.22); height: 25%; border-radius: 1px; }
+.wave .b { flex: 1; background: rgba(242,232,213,.22); height: 88%; border-radius: 1px; transform: scaleY(.28); }
 .wave.on .b { animation: wb .9s ease-in-out infinite; background: var(--coral); }
 .wave.on .b:nth-child(2){animation-delay:.1s}.wave.on .b:nth-child(3){animation-delay:.2s}
 .wave.on .b:nth-child(4){animation-delay:.3s}.wave.on .b:nth-child(5){animation-delay:.1s}
 .wave.on .b:nth-child(6){animation-delay:.25s}.wave.on .b:nth-child(7){animation-delay:.05s}
 .wave.on .b:nth-child(8){animation-delay:.18s}.wave.on .b:nth-child(9){animation-delay:.32s}
 .wave.on .b:nth-child(10){animation-delay:.12s}
-@keyframes wb { 0%,100%{height:20%} 50%{height:88%} }
+@keyframes wb { 0%,100%{transform:scaleY(.23)} 50%{transform:scaleY(1)} }
 
 /* DRAWER */
 .drawer-btn {
@@ -207,25 +217,26 @@ body.translit-on .np-cap-tr, body.translit-on .tip-tr { display: inline; }
   padding: 10px 16px; border-radius: 3px;
   font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
   display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.15);
-  transition: left .4s cubic-bezier(.22,.61,.36,1);
+  transition: transform .4s cubic-bezier(.22,.61,.36,1);
 }
 .drawer-btn .arr { display: inline-block; transition: transform .3s; }
-.drawer-btn.open { left: 338px; }
+.drawer-btn.open { transform: translateX(314px); }
 .drawer-btn.open .arr { transform: rotate(180deg); }
 .drawer {
-  position: fixed; left: 0; top: 56px; bottom: 0; width: 314px; z-index: 14;
+  position: fixed; left: 0; top: 56px; bottom: 0; width: 314px; z-index: 19;
   background: var(--paper); border-right: 1px solid var(--ink);
-  transform: translateX(-100%); transition: transform .4s cubic-bezier(.22,.61,.36,1);
+  transform: translateX(-100%); visibility: hidden;
+  transition: transform .4s cubic-bezier(.22,.61,.36,1), visibility 0s linear .4s;
   display: flex; flex-direction: column; box-shadow: 6px 0 24px rgba(0,0,0,.08);
 }
-.drawer.open { transform: translateX(0); }
+.drawer.open { transform: translateX(0); visibility: visible; transition: transform .4s cubic-bezier(.22,.61,.36,1), visibility 0s; }
 .drawer-head {
   padding: 18px 22px 14px; border-bottom: 1px solid var(--rule);
   font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--mute);
   display: flex; justify-content: space-between;
 }
 .drawer-head strong { color: var(--ink); }
-.clist { list-style: none; overflow-y: auto; flex: 1; }
+.clist { list-style: none; overflow-y: auto; flex: 1; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .clist::-webkit-scrollbar { width: 5px; }
 .clist::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
 .clist li {
@@ -233,7 +244,7 @@ body.translit-on .np-cap-tr, body.translit-on .tip-tr { display: inline; }
   align-items: center; gap: 10px; padding: 10px 22px;
   border-bottom: 1px solid var(--paper2); cursor: pointer; transition: background .12s;
 }
-.clist li:hover { background: var(--paper2); }
+@media (hover: hover) { .clist li:hover { background: var(--paper2); } }
 .clist li.active { background: var(--coral); color: var(--paper); }
 .clist li.active .cn, .clist li.active .cc, .clist li.active .cm-t { color: rgba(242,232,213,.7); }
 .clist .cn { font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--mute); }
@@ -250,7 +261,7 @@ body.translit-on .np-cap-tr, body.translit-on .tip-tr { display: inline; }
 .hint {
   position: fixed; left: 50%; top: 70px; transform: translateX(-50%);
   background: rgba(42,33,22,.88); color: var(--paper);
-  padding: 8px 20px; border-radius: 20px;
+  padding: 8px 20px; border-radius: 20px; white-space: nowrap;
   font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
   z-index: 16; opacity: 0; transition: opacity .4s; pointer-events: none;
 }
@@ -305,15 +316,52 @@ body.translit-on .np-cap-tr, body.translit-on .tip-tr { display: inline; }
   .eyebrow { display: none; }
 }
 @media (max-width: 560px) {
-  .np { left: 14px; right: 14px; bottom: 14px; width: auto; }
-  .drawer { width: 272px; }
-  .drawer-btn.open { left: 292px; }
+  .drawer { width: min(300px, 82vw); }
+  .drawer-btn.open { transform: translateX(min(300px, 82vw)); }
   .drawer-btn, .zoom-ctl { top: 66px; }
-  .drawer-btn { left: 14px; }
-  .zoom-ctl { right: 14px; }
+  .drawer-btn { left: 12px; }
+  .zoom-ctl { right: 12px; }
+  .zoom-ctl button { width: 38px; height: 38px; }
   .compass { display: none; }
   .tbtn { padding: 5px 8px; gap: 6px; }
   .tbtn .tbtn-label { display: none; }
+  .hint { top: auto; bottom: calc(18px + env(safe-area-inset-bottom)); font-size: 9.5px; padding: 7px 14px; }
+
+  /* Compact now-playing card so more of the map stays visible */
+  .np { left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); width: auto; }
+  .np-inner { padding: 12px 16px 12px; }
+  .np-head { margin-bottom: 4px; }
+  .np-id { flex-direction: row; align-items: center; gap: 12px; }
+  .np-flag { min-height: 0; }
+  .np-flag img, .np-flag svg { width: 38px !important; height: auto !important; }
+  .np-num { font-size: 30px; }
+  .np-name { font-size: 21px; margin-top: 2px; }
+  .np-arabic { font-size: 18px; margin-top: 0; }
+  .np-capital { margin-top: 6px; }
+  .np-ctrl { margin-top: 10px; padding-top: 10px; }
+  .play-btn { width: 36px; height: 36px; }
+}
+/* Phones in landscape: compact card on the left, clear of the zoom controls */
+@media (max-height: 500px) and (min-width: 561px) {
+  .drawer-btn, .zoom-ctl { top: 64px; }
+  .zoom-ctl button { width: 34px; height: 34px; }
+  .compass { display: none; }
+  .hint { top: auto; bottom: 14px; }
+  .np { left: 12px; right: auto; bottom: 10px; width: 290px; }
+  .np-inner { padding: 10px 14px; }
+  .np-head { margin-bottom: 2px; }
+  .np-id { flex-direction: row; align-items: center; gap: 12px; }
+  .np-flag { min-height: 0; }
+  .np-flag img, .np-flag svg { width: 34px !important; height: auto !important; }
+  .np-num { font-size: 26px; }
+  .np-name { font-size: 19px; margin-top: 0; }
+  .np-arabic { font-size: 17px; margin-top: 0; }
+  .np-capital { margin-top: 4px; }
+  .np-ctrl { margin-top: 8px; padding-top: 8px; }
+  .play-btn { width: 32px; height: 32px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wave.on .b, .load-spin { animation: none; }
 }
 </style>
 </head>
@@ -335,31 +383,13 @@ body.translit-on .np-cap-tr, body.translit-on .tip-tr { display: inline; }
 </header>
 
 <div id="wrap">
-  <svg id="map">
-    <defs>
-      <!-- Sea hatching pattern -->
-      <pattern id="seaPat" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
-        <line x1="0" y1="0" x2="10" y2="0" stroke="#7DADA8" stroke-width="0.55" opacity="0.55"/>
-      </pattern>
-      <!-- Paper noise filter -->
-      <filter id="paper" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
-        <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="4" seed="8" result="noise"/>
-        <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.07 0" in="noise" result="tint"/>
-        <feComposite in="tint" in2="SourceGraphic" operator="over"/>
-      </filter>
-      <!-- Subtle drop shadow for arab countries -->
-      <filter id="countryShadow" x="-10%" y="-10%" width="120%" height="120%">
-        <feDropShadow dx="0.5" dy="1" stdDeviation="1.5" flood-color="rgba(42,33,22,0.18)"/>
-      </filter>
-    </defs>
-    <!-- Layers built by JS -->
-  </svg>
+  <svg id="map" aria-label="Map of the Arab world"></svg>
 </div>
 
 <div id="vignette"></div>
 
 <!-- Tooltip -->
-<div id="tip" role="status"></div>
+<div id="tip" aria-hidden="true"></div>
 
 <!-- Loading overlay -->
 <div class="load" id="load">
@@ -370,7 +400,7 @@ body.translit-on .np-cap-tr, body.translit-on .tip-tr { display: inline; }
 </div>
 
 <!-- Compass -->
-<svg class="compass" viewBox="0 0 100 100">
+<svg class="compass" viewBox="0 0 100 100" aria-hidden="true">
   <circle cx="50" cy="50" r="46" fill="none" stroke="var(--ink2)" stroke-width=".7" opacity=".6"/>
   <circle cx="50" cy="50" r="32" fill="none" stroke="var(--ink2)" stroke-width=".35" opacity=".4"/>
   <g stroke="var(--ink2)" stroke-width=".6" opacity=".5">
@@ -404,8 +434,10 @@ body.translit-on .np-cap-tr, body.translit-on .tip-tr { display: inline; }
 <div class="np" id="np">
   <div class="np-inner">
     <div class="np-head"><span>Now Playing</span><button class="np-close" id="np-close" aria-label="Close">×</button></div>
-    <div class="np-flag" id="np-flag">🗺</div>
-    <div class="np-num" id="np-num">01</div>
+    <div class="np-id">
+      <div class="np-flag" id="np-flag"></div>
+      <div class="np-num" id="np-num">01</div>
+    </div>
     <div class="np-name" id="np-name">—</div>
     <div class="np-arabic" id="np-arabic" lang="ar"></div>
     <div class="np-translit" id="np-translit"></div>
@@ -452,13 +484,14 @@ body.translit-on .np-cap-tr, body.translit-on .tip-tr { display: inline; }
   </div>
 </div>
 
-<script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js"></script>
-<script src="https://unpkg.com/topojson-client@3/dist/topojson-client.min.js"></script>
+<script src="assets/vendor/d3.v7.9.0.min.js"></script>
+<script src="assets/vendor/topojson-client.v3.1.0.min.js"></script>
+<script src="assets/map/world.js"></script>
 <script>
 // ─── Data ────────────────────────────────────────────────────────────────────
 // Flag helper — CDN img for all except Syria (new flag via SVG)
 function flagImg(code, alt) {
-  return `<img src="https://flagcdn.com/w80/${code}.png" alt="${alt}" loading="lazy" style="width:48px;height:auto;border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,.25);vertical-align:middle;" onerror="this.style.display='none'">`;
+  return `<img src="https://flagcdn.com/w80/${code}.png" alt="${alt}" loading="lazy" decoding="async" style="width:48px;height:auto;border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,.25);vertical-align:middle;" onerror="this.style.display='none'">`;
 }
 const SYRIA_FLAG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="52" height="35" style="border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,.25);display:inline-block;vertical-align:middle">
   <rect width="900" height="200" y="0"   fill="#007A3D"/>
@@ -473,7 +506,7 @@ const SYRIA_FLAG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600
 
 // Each country: name / Arabic name / transliteration (tr),
 // capital in English / Arabic (capAr) / transliteration (capTr).
-// `isos` lists every polygon id in the world-atlas dataset rendered as this country.
+// `isos` lists every polygon id in the map data rendered as this country.
 const CD = [
   { n:1,  isos:[504],     name:"Morocco",              ar:"المغرب",       tr:"al-Maghrib",     cap:"Rabat",       capAr:"الرباط",       capTr:"ar-Ribāṭ",           flag:flagImg("ma","Morocco"),              lon:-6,   lat:32 },
   { n:2,  isos:[478],     name:"Mauritania",           ar:"موريتانيا",    tr:"Mūrītānyā",      cap:"Nouakchott",  capAr:"نواكشوط",      capTr:"Nawākshūṭ",          flag:flagImg("mr","Mauritania"),           lon:-11,  lat:20 },
@@ -500,6 +533,7 @@ const ISO_TO_N = {};
 CD.forEach(c => c.isos.forEach(iso => { ISO_TO_N[iso] = c.n; }));
 const ARAB_ISO = new Set(Object.keys(ISO_TO_N).map(Number));
 const N_MAX = CD.length;
+const byN = n => CD.find(c => c.n === n);
 
 const AUDIO_MAP_DEFAULT = /*EDITMODE-BEGIN*/{
   "1":10,"2":9,"3":19,"4":17,"5":8,
@@ -509,6 +543,11 @@ const AUDIO_MAP_DEFAULT = /*EDITMODE-BEGIN*/{
 }/*EDITMODE-END*/;
 let AUDIO_MAP = { ...AUDIO_MAP_DEFAULT };
 try { const s = localStorage.getItem("am3"); if (s) AUDIO_MAP = { ...AUDIO_MAP, ...JSON.parse(s) }; } catch(e){}
+
+const isSmallScreen = () => window.innerWidth <= 560 || window.innerHeight <= 500;
+const canHover = window.matchMedia("(hover: hover)").matches;
+// Phones and tablets skip the thin grey borders while the map animates
+const lightAnimations = window.matchMedia("(pointer: coarse)").matches;
 
 // ─── Transliteration toggle ──────────────────────────────────────────────────
 const translitBtn = document.getElementById("translit-btn");
@@ -524,157 +563,163 @@ try { setTranslit(localStorage.getItem("translit") === "1"); } catch(e) {}
 // ─── Map setup ────────────────────────────────────────────────────────────────
 const wrap = document.getElementById("wrap");
 const svgEl = document.getElementById("map");
-let { width: W, height: H } = wrap.getBoundingClientRect();
-const svg = d3.select(svgEl).attr("width", W).attr("height", H);
+const zoomLabel = document.getElementById("zoom-label");
+let W = 0, H = 0;
+const svg = d3.select(svgEl);
 
-// Projection: Mercator, fitted to Arab world bounding box.
+// Projection: Mercator, fitted to the Arab world bounding box.
 // The ring must wind clockwise — d3 treats counter-clockwise spherical rings
-// as "everything but the box", which made fitExtent frame the whole world.
+// as "everything but the box", which would frame the whole world.
 const ARAB_BOX = { type:"Feature", geometry:{ type:"Polygon",
   coordinates:[[[-22,-12],[-22,44],[67,44],[67,-12],[-22,-12]]] }};
-const proj = d3.geoMercator().fitExtent([[30,30],[W-30,H-30]], ARAB_BOX);
+const proj = d3.geoMercator();
 const path = d3.geoPath(proj);
+let MAX_K = 10;
 
-// Layers
-const gSea  = svg.append("g").attr("class","layer-sea");
-const gGrid = svg.append("g").attr("class","layer-grid");
-const gLand = svg.append("g").attr("class","layer-land");
-const gArab = svg.append("g").attr("class","layer-arab").attr("filter","url(#countryShadow)");
-const gMark = svg.append("g").attr("class","layer-mark");
+// Everything that pans/zooms lives in one group, so a redraw updates a
+// single transform.
+const clipRect = svg.append("clipPath").attr("id", "view-clip").append("rect");
+const gView = svg.append("g").attr("clip-path", "url(#view-clip)").append("g");
+const gGrid = gView.append("g");
+const gLand = gView.append("g");
+const gArab = gView.append("g");
+const gMark = gView.append("g");
 
-// Sea background
-gSea.append("rect").attr("x",0).attr("y",0).attr("width",W).attr("height",H).attr("class","sea-fill");
-gSea.append("rect").attr("x",0).attr("y",0).attr("width",W).attr("height",H).attr("class","sea-lines").attr("opacity",.45);
+// Redrawing the vector map is the expensive part of every frame, so drags and
+// pinches don't redraw: they move the already-painted SVG with a GPU (CSS)
+// transform, and the map is redrawn crisply once the gesture ends. The SVG
+// extends PAD px beyond each edge of the window so there is painted map to
+// reveal while dragging. Animations and wheel steps redraw every frame, with
+// the map clipped to the window so the hidden margin isn't redrawn too.
+let PAD = 0;
+let drawn = d3.zoomIdentity;   // transform the vector map is currently drawn at
+let clipTight = null;
+function setClip(tight) {
+  if (tight === clipTight) return;
+  clipTight = tight;
+  if (tight) clipRect.attr("x", PAD).attr("y", PAD).attr("width", W).attr("height", H);
+  else clipRect.attr("x", 0).attr("y", 0).attr("width", W + 2 * PAD).attr("height", H + 2 * PAD);
+}
+function draw(t) {
+  drawn = t;
+  gView.attr("transform", `translate(${t.x + PAD},${t.y + PAD}) scale(${t.k})`);
+  svgEl.style.transform = "";
+  if (hasMarkers) gMark.selectAll("circle").attr("r", Math.max(3, 7 / t.k));
+}
+// Returns false if the shifted image would leave part of the window unpainted
+// or be scaled too far (blurry or too small) — the caller then redraws.
+function shift(t) {
+  const s = t.k / drawn.k;
+  if (s > 1.8 || s < 0.55) return false;
+  const dx = t.x - s * drawn.x, dy = t.y - s * drawn.y;
+  if (dx - s * PAD > 0 || dy - s * PAD > 0 || dx + s * (W + PAD) < W || dy + s * (H + PAD) < H) return false;
+  svgEl.style.transform = `translate(${dx}px,${dy}px) scale(${s})`;
+  return true;
+}
 
-// Graticule
-const graticule = d3.geoGraticule().step([10,10]);
-gGrid.append("path").datum(graticule()).attr("class","graticule").attr("d",path);
-
-// Zoom behaviour
+let lastPct = -1;
 const zoom = d3.zoom()
-  .scaleExtent([0.9, 10])
+  .on("start", (ev) => { if (ev.sourceEvent?.type === "mousedown") wrap.classList.add("dragging"); })
   .on("zoom", (ev) => {
     const t = ev.transform;
-    gLand.attr("transform", t);
-    gArab.attr("transform", t);
-    gMark.attr("transform", t);
-    gGrid.attr("transform", t);
-    // Keep small-country markers a constant size on screen
-    gMark.selectAll("circle").attr("r", Math.max(3, 7 / t.k));
-    document.getElementById("zoom-label").textContent = Math.round(t.k * 100) + "%";
+    const type = ev.sourceEvent?.type;
+    if (type === "mousemove" || type === "touchmove") {
+      if (clipTight || !shift(t)) { setClip(false); draw(t); }
+    } else {
+      setClip(true);
+      if (lightAnimations) svgEl.classList.add("moving");
+      draw(t);
+    }
+    const pct = Math.round(t.k * 100);
+    if (pct !== lastPct) { lastPct = pct; zoomLabel.textContent = pct + "%"; }
+  })
+  .on("end", (ev) => {
+    wrap.classList.remove("dragging");
+    if (svgEl.style.transform) draw(ev.transform);
+    setClip(false);
+    svgEl.classList.remove("moving");
   });
-svg.call(zoom).on("dblclick.zoom", null);
-svg.on("mousedown.cursor", () => d3.select("#map").classed("dragging", true));
-svg.on("mouseup.cursor", () => d3.select("#map").classed("dragging", false));
+const zoomSel = d3.select(wrap);
+zoomSel.call(zoom).on("dblclick.zoom", null);
 // Click on open water / foreign land dismisses the current selection
 svg.on("click.deselect", (ev) => {
   if (ev.defaultPrevented) return;               // ignore click at end of a drag
   if (ev.target.closest(".arab-path, .small-marker")) return;
-  deselect(false);
+  if (currentN) deselect(false);
 });
 
-// ─── Tooltip ─────────────────────────────────────────────────────────────────
+// Fit the projection to the window. Geometry is clipped to the area the user
+// can pan to, so off-screen land is never drawn.
+function layout() {
+  const r = wrap.getBoundingClientRect();
+  W = Math.round(r.width); H = Math.round(r.height);
+  PAD = Math.round(Math.max(W, H) * 0.25);
+  svg.attr("width", W + 2 * PAD).attr("height", H + 2 * PAD)
+    .style("left", -PAD + "px").style("top", -PAD + "px")
+    .style("transform-origin", `${PAD}px ${PAD}px`);
+  clipTight = null;
+  setClip(false);
+  proj.clipExtent(null).fitExtent([[30,30],[W-30,H-30]], ARAB_BOX);
+  const m = Math.round(Math.max(W, H) * 0.2);
+  const ext = [[-m, -m], [W + m, H + m]];
+  proj.clipExtent([[ext[0][0] - 4, ext[0][1] - 4], [ext[1][0] + 4, ext[1][1] + 4]]);
+  // Small screens start with a smaller map, so they may zoom further: the
+  // deepest zoom shows about the same detail on every screen.
+  MAX_K = Math.max(10, 160 / (proj.scale() * Math.PI / 180));
+  if (path.digits) path.digits(MAX_K > 12 ? 2 : 1);
+  zoom.extent([[0, 0], [W, H]]).translateExtent(ext).scaleExtent([1, MAX_K]);
+}
+
+// ─── Tooltip (mouse/pen only — on touch the Now Playing card is enough) ─────
 const tip = document.getElementById("tip");
+let tipW = 0, tipH = 0;
 function tipShow(c, ev) {
+  if (ev.pointerType === "touch") return;
   tip.innerHTML = `<strong>${c.name}</strong> · <span class="tip-ar" lang="ar">${c.ar}</span>` +
                   `<em class="tip-tr"> · ${c.tr}</em>`;
+  tipW = tip.offsetWidth; tipH = tip.offsetHeight;
   tip.classList.add("vis");
   tipMove(ev);
 }
 function tipMove(ev) {
-  const pad = 14, tw = tip.offsetWidth, th = tip.offsetHeight;
+  if (ev.pointerType === "touch" || !tip.classList.contains("vis")) return;
+  const pad = 14;
   let x = ev.clientX + pad, y = ev.clientY + pad;
-  if (x + tw > window.innerWidth - 8)  x = ev.clientX - tw - pad;
-  if (y + th > window.innerHeight - 8) y = ev.clientY - th - pad;
-  tip.style.left = x + "px";
-  tip.style.top  = y + "px";
+  if (x + tipW > window.innerWidth - 8)  x = ev.clientX - tipW - pad;
+  if (y + tipH > window.innerHeight - 8) y = ev.clientY - tipH - pad;
+  tip.style.transform = `translate(${x}px,${y}px)`;
 }
 function tipHide() { tip.classList.remove("vis"); }
 
-// ─── Golan Heights border fix ────────────────────────────────────────────────
-// The world-atlas dataset draws Syria's south-west border along the 1967 line,
-// leaving the Golan Heights outside Syria. Rebuild both affected rings so the
-// Golan is part of Syria, with the border following the Yarmouk River, the
-// eastern shore of the Sea of Galilee and the upper Jordan River.
-const GOLAN_WEST = [ // south → north
-  [35.585,32.690],[35.596,32.723],[35.622,32.748],[35.641,32.780],
-  [35.648,32.820],[35.643,32.860],[35.630,32.888],   // Sea of Galilee, east shore
-  [35.633,32.930],[35.625,32.980],[35.617,33.030],[35.613,33.080],
-  [35.622,33.130],[35.637,33.180],[35.650,33.225]    // upper Jordan River valley
-];
-const YARMOUK_CONFLUENCE = [35.5738,32.6410]; // Yarmouk–Jordan rivers, tripoint with Jordan
-const GHAJAR_TRIPOINT    = [35.6278,33.2746]; // tripoint with Lebanon
-function fixGolan(features) {
-  const near = (p, q) => Math.abs(p[0]-q[0]) < 1e-3 && Math.abs(p[1]-q[1]) < 1e-3;
-  const idxOf = (ring, pt) => ring.findIndex(p => near(p, pt));
-  const syria  = features.find(f => +f.id === 760);
-  const israel = features.find(f => +f.id === 376);
-  if (!syria || !israel) return;
-  const sRing = syria.geometry.coordinates[0];
-  const iRing = israel.geometry.coordinates[0];
-  const sA = idxOf(sRing, [35.7862,32.7347]);  // on the Yarmouk, tripoint with Jordan
-  const sB = idxOf(sRing, [35.8690,33.4326]);  // Mt Hermon, tripoint with Lebanon
-  const iC = idxOf(iRing, YARMOUK_CONFLUENCE);
-  const iD = idxOf(iRing, GHAJAR_TRIPOINT);
-  if (sA < 0 || sB < 0 || iC < 0 || iD < 0 || sA >= sB || iC >= iD) return; // dataset changed — leave as-is
-  // Syria: swap the 1967-line detour for the river line (vertices shared with
-  // Jordan along the Yarmouk and with Lebanon along the Hermon slopes).
-  sRing.splice(sA + 1, sB - sA - 1,
-    [35.7358,32.7295],[35.6098,32.6826],[35.5954,32.6687], YARMOUK_CONFLUENCE,
-    ...GOLAN_WEST,
-    GHAJAR_TRIPOINT, [35.7358,33.3319],[35.7862,33.3701],[35.8402,33.4152]);
-  // Israel/Palestine polygon: cut the Golan off along the same river line so it
-  // cannot paint over Syria (this polygon is drawn after Syria).
-  const keep = iRing.slice(iC, iD + 1);
-  israel.geometry.coordinates[0] = [...keep, ...[...GOLAN_WEST].reverse(), keep[0]];
+// ─── Build map ────────────────────────────────────────────────────────────────
+let featuresByN = {};   // n → map features rendered for that country
+let hasMarkers = false;
+let landGeo = null, bordersGeo = null, gratGeo = null;
+
+function render() {
+  gGrid.selectAll("path").attr("d", path);
+  gLand.selectAll("path").attr("d", path);
+  gArab.selectAll("path").attr("d", path);
+  gMark.selectAll("circle")
+    .attr("cx", c => proj([c.lon, c.lat])[0])
+    .attr("cy", c => proj([c.lon, c.lat])[1]);
 }
 
-// ─── Load Topojson ────────────────────────────────────────────────────────────
-const WORLD_URLS = [
-  "https://unpkg.com/world-atlas@2/countries-50m.json",
-  "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json"
-];
-let featuresByN = {};   // n → topo features rendered for that country
+function buildMap(topo) {
+  const countries = topo.objects.countries;
+  const isArab = g => ARAB_ISO.has(+g.id);
 
-async function loadWorld() {
-  let lastErr;
-  for (const url of WORLD_URLS) {
-    try {
-      const r = await fetch(url);
-      if (r.ok) return await r.json();
-      lastErr = new Error("HTTP " + r.status);
-    } catch (e) { lastErr = e; }
-  }
-  throw lastErr || new Error("Could not load map data");
-}
+  // Non-Arab land is drawn as one merged shape plus one border mesh,
+  // instead of ~200 separate country paths.
+  landGeo = topojson.merge(topo, countries.geometries.filter(g => !isArab(g)));
+  bordersGeo = topojson.mesh(topo, countries, (a, b) => a !== b && !isArab(a) && !isArab(b));
+  gratGeo = d3.geoGraticule().step([10,10])();
 
-function startLoad() {
-  const box = document.getElementById("load");
-  const card = document.getElementById("load-card");
-  box.classList.remove("hide");
-  card.innerHTML = `<div class="load-spin"></div><span>Loading world map…</span>`;
-  loadWorld()
-    .then(world => { box.classList.add("hide"); buildMap(world); })
-    .catch(() => {
-      card.innerHTML = `<span>Could not load the map data.<br>Check your connection.</span>
-        <button class="load-retry" id="load-retry">Retry</button>`;
-      document.getElementById("load-retry").addEventListener("click", startLoad);
-    });
-}
+  gGrid.append("path").datum(gratGeo).attr("class","graticule");
+  gLand.append("path").datum(landGeo).attr("class","land");
+  gLand.append("path").datum(bordersGeo).attr("class","borders");
 
-function buildMap(world) {
-  const features = topojson.feature(world, world.objects.countries).features;
-  fixGolan(features);
-
-  // Non-Arab land background
-  gLand.selectAll("path")
-    .data(features.filter(f => !ARAB_ISO.has(+f.id)))
-    .join("path")
-    .attr("class","land-bg")
-    .attr("d", path);
-
-  // Arab country paths
-  const arabFeatures = features.filter(f => ARAB_ISO.has(+f.id));
+  const arabFeatures = topojson.feature(topo, countries).features.filter(f => ARAB_ISO.has(+f.id));
   featuresByN = {};
   arabFeatures.forEach(f => {
     const n = ISO_TO_N[+f.id];
@@ -686,58 +731,101 @@ function buildMap(world) {
     .join("path")
     .attr("class","arab-path")
     .attr("data-n", f => ISO_TO_N[+f.id])
-    .attr("d", path)
     .on("click", (ev, f) => {
       ev.stopPropagation();
       const n = ISO_TO_N[+f.id];
       if (n) selectCountry(n);
     })
-    .on("mouseenter", (ev, f) => { const c = CD.find(x => x.n === ISO_TO_N[+f.id]); if (c) tipShow(c, ev); })
-    .on("mousemove", (ev) => tipMove(ev))
-    .on("mouseleave", tipHide);
+    .on("pointerdown", (ev, f) => audioFor(ISO_TO_N[+f.id]))
+    .on("pointerenter", (ev, f) => {
+      const c = byN(ISO_TO_N[+f.id]);
+      if (c && canHover) { tipShow(c, ev); audioFor(c.n); }
+    })
+    .on("pointermove", tipMove)
+    .on("pointerleave", tipHide);
 
-  // Fallback markers for countries missing in dataset (very small: Bahrain etc)
+  // Fallback markers for countries missing from the map data
   const foundISOs = new Set(arabFeatures.map(f => +f.id));
   const missing = CD.filter(c => !c.isos.some(iso => foundISOs.has(iso)));
+  hasMarkers = missing.length > 0;
   gMark.selectAll("circle")
     .data(missing)
     .join("circle")
     .attr("class","small-marker")
-    .attr("cx", c => proj([c.lon, c.lat])[0])
-    .attr("cy", c => proj([c.lon, c.lat])[1])
     .attr("r", 7)
     .attr("data-n", c => c.n)
     .on("click", (ev, c) => { ev.stopPropagation(); selectCountry(c.n); })
-    .on("mouseenter", (ev, c) => tipShow(c, ev))
-    .on("mousemove", (ev) => tipMove(ev))
-    .on("mouseleave", tipHide);
+    .on("pointerenter", (ev, c) => { if (canHover) tipShow(c, ev); })
+    .on("pointermove", tipMove)
+    .on("pointerleave", tipHide);
 
+  render();
   resetView(false);
 }
-startLoad();
+
+function start() {
+  const box = document.getElementById("load");
+  layout();
+  if (!window.d3 || !window.topojson || !window.WORLD_TOPO) {
+    document.getElementById("load-card").innerHTML =
+      `<span>Could not load the map.<br>Check your connection.</span>
+       <button class="load-retry" onclick="location.reload()">Retry</button>`;
+    return;
+  }
+  buildMap(window.WORLD_TOPO);
+  box.classList.add("hide");
+}
 
 // ─── Selection ────────────────────────────────────────────────────────────────
 let currentN = null;
 let aud = null;
 
+// The part of the map not hidden behind the open country list or the Now
+// Playing card, in map coordinates. offset* values ignore the card's
+// slide-in transform.
+function viewArea() {
+  let x0 = 0, y0 = 0, x1 = W, y1 = H;
+  if (drawer.classList.contains("open")) x0 = drawer.offsetWidth;
+  const cl = np.offsetLeft, ct = np.offsetTop - wrap.offsetTop, cw = np.offsetWidth, ch = np.offsetHeight;
+  if (cw >= W * 0.6) y1 = Math.max(H * 0.45, ct - 10);         // full-width card along the bottom
+  else if (ch >= H * 0.5) {                                     // tall card beside the map
+    if (cl < W / 2) x0 = Math.max(x0, cl + cw + 10);
+    else x1 = Math.min(x1, cl - 10);
+  }
+  if (x1 - x0 < W * 0.35) { x0 = 0; x1 = W; }
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+function flyTo(x0, y0, x1, y1, maxK) {
+  const a = viewArea();
+  const dx = Math.max(x1 - x0, 1), dy = Math.max(y1 - y0, 1);
+  const k = Math.max(1.5, Math.min(maxK, 0.72 / Math.max(dx / a.w, dy / a.h)));
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  let t = d3.zoomIdentity.translate(a.x + a.w / 2 - k * cx, a.y + a.h / 2 - k * cy).scale(k);
+  t = zoom.constrain()(t, [[0, 0], [W, H]], zoom.translateExtent());
+  zoomSel.transition().duration(650).call(zoom.transform, t);
+}
+
+const np = document.getElementById("np");
 function selectCountry(n) {
-  const c = CD.find(x => x.n === n);
+  const c = byN(n);
   if (!c) return;
   currentN = n;
   hideHint();
+  tipHide();
 
   // Highlight map
-  d3.selectAll(".arab-path").classed("active", f => ISO_TO_N[+f.id] === n);
-  d3.selectAll(".small-marker").classed("active", function() { return +this.dataset.n === n; });
+  gArab.selectAll(".arab-path").classed("active", f => ISO_TO_N[+f.id] === n);
+  gMark.selectAll(".small-marker").classed("active", d => d.n === n);
 
   // List
   document.querySelectorAll(".clist li").forEach(li => {
-    li.classList.toggle("active", +li.dataset.n === n);
-    if (+li.dataset.n === n) {
-      const lst = li.parentElement;
-      const top = li.offsetTop;
-      if (top < lst.scrollTop || top + li.offsetHeight > lst.scrollTop + lst.clientHeight) {
-        lst.scrollTo({ top: top - 20, behavior: "smooth" });
+    const on = +li.dataset.n === n;
+    li.classList.toggle("active", on);
+    if (on) {
+      const top = li.offsetTop - clist.offsetTop;
+      if (top < clist.scrollTop || top + li.offsetHeight > clist.scrollTop + clist.clientHeight) {
+        clist.scrollTo({ top: top - 20, behavior: "smooth" });
       }
     }
   });
@@ -751,7 +839,9 @@ function selectCountry(n) {
   document.getElementById("np-cap").textContent = c.cap;
   document.getElementById("np-cap-ar").textContent = c.capAr;
   document.getElementById("np-cap-tr").textContent = c.capTr;
-  document.getElementById("np").classList.add("show");
+  np.classList.add("show");
+
+  playAudio(n);
 
   // Zoom to country (all of its polygons combined), or to its marker
   const feats = featuresByN[n];
@@ -762,81 +852,87 @@ function selectCountry(n) {
       x0 = Math.min(x0, b[0][0]); y0 = Math.min(y0, b[0][1]);
       x1 = Math.max(x1, b[1][0]); y1 = Math.max(y1, b[1][1]);
     });
-    const dx = x1-x0, dy = y1-y0;
-    const cx = (x0+x1)/2, cy = (y0+y1)/2;
-    const targetK = Math.max(1.5, Math.min(9, 0.72 / Math.max(dx/W, dy/H)));
-    svg.transition().duration(700)
-      .call(zoom.transform, d3.zoomIdentity.translate(W/2 - targetK*cx, H/2 - targetK*cy).scale(targetK));
+    flyTo(x0, y0, x1, y1, MAX_K * 0.9);
   } else {
     const [px, py] = proj([c.lon, c.lat]);
-    const k = 6;
-    svg.transition().duration(700)
-      .call(zoom.transform, d3.zoomIdentity.translate(W/2 - k*px, H/2 - k*py).scale(k));
+    flyTo(px - 4, py - 4, px + 4, py + 4, MAX_K * 0.6);
   }
-
-  playAudio(n);
 }
 
 function deselect(resetZoom) {
-  document.getElementById("np").classList.remove("show");
+  np.classList.remove("show");
   if (aud) aud.pause();
-  d3.selectAll(".arab-path,.small-marker").classed("active", false);
+  gArab.selectAll(".arab-path").classed("active", false);
+  gMark.selectAll(".small-marker").classed("active", false);
   document.querySelectorAll(".clist li.active").forEach(li => li.classList.remove("active"));
   currentN = null;
   if (resetZoom) resetView();
 }
 
-function playAudio(n) {
-  if (aud) { aud.pause(); aud.currentTime = 0; }
+// One Audio element per file, reused, so replaying a country is instant.
+// Loading starts on hover / touch-down, a moment before the click lands.
+const audioCache = new Map();
+function audioFor(n) {
+  if (!n) return null;
   const aN = AUDIO_MAP[String(n)] || n;
-  aud = new Audio(`assets/audio/${String(aN).padStart(2,"0")}.mp3`);
-  aud.preload = "auto";
-  aud.addEventListener("play",  () => { setWave(true);  setPlayIcon(true); });
-  aud.addEventListener("pause", () => { setWave(false); setPlayIcon(false); });
-  aud.addEventListener("ended", () => { setWave(false); setPlayIcon(false); });
-  aud.addEventListener("error", () => { setWave(false); setPlayIcon(false); });
-  aud.play().catch(()=>{});
+  const src = `assets/audio/${String(aN).padStart(2,"0")}.mp3`;
+  let a = audioCache.get(src);
+  if (!a) {
+    a = new Audio(src);
+    a.preload = "auto";
+    a.addEventListener("play", () => { if (a === aud) { setWave(true); setPlayIcon(true); } });
+    for (const type of ["pause", "ended", "error"]) {
+      a.addEventListener(type, () => { if (a === aud) { setWave(false); setPlayIcon(false); } });
+    }
+    audioCache.set(src, a);
+  }
+  return a;
 }
-function setWave(on) { document.getElementById("wave").classList.toggle("on", on); }
+function playAudio(n) {
+  if (aud) aud.pause();
+  aud = audioFor(n);
+  try { aud.currentTime = 0; } catch(e) {}
+  aud.play().catch(() => {});
+}
+const waveEl = document.getElementById("wave");
+const playBtn = document.getElementById("play-btn");
+let iconPlaying = null;
+function setWave(on) { waveEl.classList.toggle("on", on); }
 function setPlayIcon(playing) {
-  document.getElementById("play-btn").innerHTML = playing
+  if (playing === iconPlaying) return;
+  iconPlaying = playing;
+  playBtn.innerHTML = playing
     ? `<svg width="13" height="14" viewBox="0 0 13 14" fill="currentColor"><rect x="1" y="1" width="4" height="12"/><rect x="8" y="1" width="4" height="12"/></svg>`
     : `<svg width="13" height="14" viewBox="0 0 13 14" fill="currentColor"><path d="M1 1v12l11-6z"/></svg>`;
 }
 
 function resetView(animate = true) {
-  const t = d3.zoomIdentity;
-  if (animate) svg.transition().duration(600).call(zoom.transform, t);
-  else svg.call(zoom.transform, t);
-  document.getElementById("zoom-label").textContent = "100%";
+  if (animate) zoomSel.transition().duration(600).call(zoom.transform, d3.zoomIdentity);
+  else zoomSel.call(zoom.transform, d3.zoomIdentity);
 }
 
 // ─── UI events ────────────────────────────────────────────────────────────────
-document.getElementById("play-btn").addEventListener("click", () => {
+playBtn.addEventListener("click", () => {
   if (!aud) { if (currentN) playAudio(currentN); return; }
-  aud.paused ? aud.play() : aud.pause();
+  aud.paused ? aud.play().catch(() => {}) : aud.pause();
 });
 document.getElementById("np-close").addEventListener("click", () => deselect(true));
 
 // Zoom buttons
-const zBtn = (factor) => {
-  const t = d3.zoomTransform(svgEl);
-  svg.transition().duration(300).call(zoom.transform,
-    d3.zoomIdentity.translate(t.x + (W/2 - t.x)*(1 - factor), t.y + (H/2 - t.y)*(1 - factor))
-      .scale(t.k * factor));
-};
-document.getElementById("z-in").addEventListener("click", () => zBtn(1.4));
-document.getElementById("z-out").addEventListener("click", () => zBtn(1/1.4));
+const zBtn = (factor) => zoomSel.transition().duration(300).call(zoom.scaleBy, factor);
+document.getElementById("z-in").addEventListener("click", () => zBtn(1.5));
+document.getElementById("z-out").addEventListener("click", () => zBtn(1/1.5));
 document.getElementById("z-reset").addEventListener("click", () => resetView());
 
 // Drawer
 const drawerBtn = document.getElementById("drawer-btn");
 const drawer = document.getElementById("drawer");
-drawerBtn.addEventListener("click", () => {
-  const open = drawer.classList.toggle("open");
+function setDrawer(open) {
+  drawer.classList.toggle("open", open);
   drawerBtn.classList.toggle("open", open);
   drawerBtn.setAttribute("aria-expanded", String(open));
-});
+}
+drawerBtn.addEventListener("click", () => setDrawer(!drawer.classList.contains("open")));
 
 // Build country list
 const clist = document.getElementById("clist");
@@ -845,13 +941,19 @@ CD.forEach(c => {
   li.dataset.n = c.n;
   li.innerHTML = `<span class="cn">${String(c.n).padStart(2,"0")}</span><span class="cf">${c.flag}</span>` +
     `<span class="cm">${c.name}<span class="cm-t">${c.tr}</span></span><span class="cc">${c.cap}</span>`;
-  li.addEventListener("click", () => selectCountry(c.n));
+  li.addEventListener("pointerdown", () => audioFor(c.n));
+  li.addEventListener("click", () => {
+    // On phones the drawer covers the map — close it so the country is visible
+    if (isSmallScreen()) setDrawer(false);
+    selectCountry(c.n);
+  });
   clist.appendChild(li);
 });
 
 // Keyboard nav
 document.addEventListener("keydown", e => {
-  if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
+  if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+  if (e.target.tagName === "BUTTON" && (e.key === " " || e.key === "Enter")) return;
   if (e.key === "ArrowRight" || e.key === "ArrowDown") {
     selectCountry(currentN ? Math.min(N_MAX, currentN + 1) : 1);
     e.preventDefault();
@@ -859,38 +961,36 @@ document.addEventListener("keydown", e => {
     selectCountry(currentN ? Math.max(1, currentN - 1) : 1);
     e.preventDefault();
   } else if (e.key === " " && currentN) {
-    if (aud) { aud.paused ? aud.play() : aud.pause(); e.preventDefault(); }
+    if (aud) { aud.paused ? aud.play().catch(() => {}) : aud.pause(); e.preventDefault(); }
   } else if (e.key === "Escape") {
     currentN ? deselect(true) : resetView();
   }
-  else if (e.key === "+" || e.key === "=") { zBtn(1.4); }
-  else if (e.key === "-" || e.key === "_") { zBtn(1/1.4); }
+  else if (e.key === "+" || e.key === "=") { zBtn(1.5); }
+  else if (e.key === "-" || e.key === "_") { zBtn(1/1.5); }
 });
 
 // Hint
 const hintEl = document.getElementById("hint");
+if (!canHover) hintEl.textContent = "Tap a country to hear its name in Arabic";
 function showHint() { hintEl.classList.add("show"); setTimeout(() => hintEl.classList.remove("show"), 4000); }
 function hideHint() { hintEl.classList.remove("show"); }
-showHint();
 
 // ─── Resize (re-fit in place, no reload) ─────────────────────────────────────
 let resizeTimer = null;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(applySize, 150);
+  resizeTimer = setTimeout(() => {
+    const r = wrap.getBoundingClientRect();
+    if (Math.round(r.width) === W && Math.round(r.height) === H) return;
+    layout();
+    render();
+    resetView(false);
+    if (currentN) selectCountry(currentN);
+  }, 200);
 });
-function applySize() {
-  ({ width: W, height: H } = wrap.getBoundingClientRect());
-  svg.attr("width", W).attr("height", H);
-  gSea.selectAll("rect").attr("width", W).attr("height", H);
-  proj.fitExtent([[30,30],[W-30,H-30]], ARAB_BOX);
-  gGrid.selectAll("path").attr("d", path);
-  gLand.selectAll("path").attr("d", path);
-  gArab.selectAll("path").attr("d", path);
-  gMark.selectAll("circle")
-    .attr("cx", c => proj([c.lon, c.lat])[0])
-    .attr("cy", c => proj([c.lon, c.lat])[1]);
-}
+
+start();
+showHint();
 
 // ─── Remap panel ─────────────────────────────────────────────────────────────
 const remapBtn = document.getElementById("remap-btn");
@@ -909,7 +1009,7 @@ function updateRemap() {
   const a = getRBAssigned(rbAudioN);
   if (a) rbAssign.value = String(a);
   document.getElementById("rb-status").textContent = a
-    ? `Audio ${rbAudioN} → ${CD.find(c=>c.n===a)?.name}` : `Audio ${rbAudioN} is unassigned.`;
+    ? `Audio ${rbAudioN} → ${byN(a)?.name}` : `Audio ${rbAudioN} is unassigned.`;
 }
 function saveMap() {
   try { localStorage.setItem("am3", JSON.stringify(AUDIO_MAP)); } catch(e) {}
@@ -929,7 +1029,7 @@ rbAssign.addEventListener("change", () => {
   for (const k of Object.keys(AUDIO_MAP)) if (AUDIO_MAP[k] === rbAudioN) AUDIO_MAP[k] = null;
   AUDIO_MAP[String(cn)] = rbAudioN;
   saveMap();
-  document.getElementById("rb-status").textContent = `Audio ${rbAudioN} → ${CD.find(c=>c.n===cn)?.name}`;
+  document.getElementById("rb-status").textContent = `Audio ${rbAudioN} → ${byN(cn)?.name}`;
 });
 document.getElementById("rb-reset").addEventListener("click", () => {
   AUDIO_MAP = { ...AUDIO_MAP_DEFAULT }; saveMap(); updateRemap();
